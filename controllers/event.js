@@ -260,7 +260,7 @@ exports.create = async (req, res, next) => {
       venue,
       mode,
       speakers,
-      coverImageName,
+      coverImageUrl,
     } = req.body;
 
     if (!title) {
@@ -277,7 +277,7 @@ exports.create = async (req, res, next) => {
       venue,
       mode,
       speakers,
-      coverImageName,
+      coverImageUrl,
       reviewNote: buildDefaultReviewNote('Pending'),
       createdBy: req.user?.id || undefined,
     });

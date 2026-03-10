@@ -15,7 +15,7 @@ const eventSchema = new Schema(
       default: 'offline',
     },
     speakers: [{ type: Types.ObjectId, ref: 'speakers' }],
-    coverImageName: { type: String },
+    coverImageUrl: { type: String },
     reviewNote: { type: String },
     status: {
       type: String,
