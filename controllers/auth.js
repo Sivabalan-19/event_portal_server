@@ -5,15 +5,31 @@ const config = require("../config");
 
 exports.register = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password)
-      return res.status(400).json({ error: "missing email or password" });
+    const { name, email, password, role, rollNo, department, year } = req.body;
+
+    if (!name || !email || !password || !role)
+      return res.status(400).json({ error: "missing required fields" });
+
+    if (!["student", "organizer"].includes(role))
+      return res.status(400).json({ error: "invalid role" });
+
+    if (role === "student" && (!rollNo || !department || !year))
+      return res.status(400).json({ error: "missing student details" });
+
     const existing = await User.findOne({ email });
     if (existing)
       return res.status(400).json({ error: "email already registered" });
+
     const hash = await bcrypt.hash(password, 10);
-    console.log(hash);
-    const user = new User({ email, password: hash });
+
+    const userData = { name, email, password: hash, role };
+    if (department) userData.department = department;
+    if (role === "student") {
+      userData.rollNo = rollNo;
+      userData.year = year;
+    }
+
+    const user = new User(userData);
     await user.save();
     res.status(201).json({ message: "user registered" });
   } catch (err) {
