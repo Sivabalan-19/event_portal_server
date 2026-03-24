@@ -160,6 +160,7 @@ exports.getMine = async (req, res, next) => {
           status: registration.status,
           waitlistPosition: registration.waitlistPosition,
           createdAt: registration.createdAt,
+          feedback: registration.feedback,
           tab,
           event: registration.event,
         };
@@ -207,6 +208,7 @@ exports.getForOwnedEvent = async (req, res, next) => {
         status: registration.status,
         waitlistPosition: registration.waitlistPosition,
         registeredAt: registration.createdAt,
+        feedback: registration.feedback,
         student: {
           _id: registration.student._id,
           name: registration.student.name,
@@ -252,6 +254,15 @@ exports.updateOwnedEventRegistrationStatus = async (req, res, next) => {
       return res.status(403).json({ error: 'you can only update attendance for your own events' });
     }
 
+    // Prevent updating attendance after the event date has passed
+    const eventDate = parseEventDate(registration.event.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (eventDate && eventDate < today) {
+      return res.status(400).json({ error: 'attendance can no longer be updated after the event date' });
+    }
+
     if (registration.status === 'waitlisted' || registration.status === 'cancelled') {
       return res.status(400).json({ error: 'attendance can only be updated for confirmed registrations' });
     }
@@ -269,6 +280,7 @@ exports.updateOwnedEventRegistrationStatus = async (req, res, next) => {
         status: registration.status,
         waitlistPosition: registration.waitlistPosition,
         registeredAt: registration.createdAt,
+        feedback: registration.feedback,
         student: {
           _id: registration.student?._id,
           name: registration.student?.name,
@@ -278,6 +290,67 @@ exports.updateOwnedEventRegistrationStatus = async (req, res, next) => {
           rollNo: registration.student?.rollNo,
         },
       },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.submitFeedback = async (req, res, next) => {
+  try {
+    if (req.user?.role !== 'student') {
+      return res.status(403).json({ error: 'only students can submit feedback' });
+    }
+
+    const { registrationId } = req.params;
+    const { rating, comment } = req.body;
+
+    if (!registrationId) {
+      return res.status(400).json({ error: 'registration id is required' });
+    }
+
+    const numericRating = Number(rating);
+    if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
+      return res.status(400).json({ error: 'rating must be an integer between 1 and 5' });
+    }
+
+    const normalizedComment = typeof comment === 'string' ? comment.trim() : '';
+
+    const registration = await Registration.findById(registrationId).populate('event', 'date');
+
+    if (!registration || !registration.event) {
+      return res.status(404).json({ error: 'registration not found' });
+    }
+
+    if (String(registration.student) !== String(req.user.id)) {
+      return res.status(403).json({ error: 'you can only submit feedback for your registrations' });
+    }
+
+    if (registration.status === 'waitlisted' || registration.status === 'cancelled') {
+      return res.status(400).json({ error: 'feedback is not allowed for this registration status' });
+    }
+
+    const eventDate = parseEventDate(registration.event.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const isCompleted = registration.status === 'attended' || (eventDate && eventDate < today);
+
+    if (!isCompleted) {
+      return res.status(400).json({ error: 'feedback can be submitted after event completion only' });
+    }
+
+    registration.feedback = {
+      rating: numericRating,
+      comment: normalizedComment,
+      submittedAt: new Date(),
+    };
+
+    await registration.save();
+
+    res.json({
+      message: 'feedback submitted successfully',
+      feedback: registration.feedback,
+      registrationId: registration._id,
     });
   } catch (err) {
     next(err);

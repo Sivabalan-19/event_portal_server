@@ -1,10 +1,11 @@
-const dotenv = require('dotenv');
-dotenv.config();
+require('dotenv').config();
 
-module.exports = {
+const config = {
   port: process.env.PORT || 3000,
   env: process.env.NODE_ENV || 'development',
   apiKey: process.env.API_KEY || '',
-  mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/Event',
+  mongoUri: process.env.MONGO_URI,
   jwtSecret: process.env.JWT_SECRET || 'CR7',
 };
+
+module.exports = config;

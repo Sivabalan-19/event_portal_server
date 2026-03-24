@@ -7,6 +7,7 @@ const registrationController = require('../controllers/registration');
 router.post('/', auth, registrationController.create);
 router.get('/event/:eventId', auth, registrationController.getForOwnedEvent);
 router.patch('/:registrationId/status', auth, registrationController.updateOwnedEventRegistrationStatus);
+router.patch('/:registrationId/feedback', auth, registrationController.submitFeedback);
 router.get('/mine', auth, registrationController.getMine);
 
 module.exports = router;
