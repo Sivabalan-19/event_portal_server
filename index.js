@@ -12,6 +12,12 @@ const allowedOrigins = clientUrlEnv.split(',').map((o) => o.trim());
 
 const isAllowAll = clientUrlEnv.trim() === '*' || allowedOrigins.includes('*');
 
+const commonCorsSettings = {
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {
@@ -20,16 +26,19 @@ const corsOptions = {
       callback(new Error(`CORS: origin ${origin} not allowed`));
     }
   },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  ...commonCorsSettings,
+};
+
+const reflectCorsOptions = {
+  origin: true, // reflect request origin
+  ...commonCorsSettings,
 };
 
 db.connect();
 
 if (isAllowAll) {
-  app.use(cors());
-  app.options('*', cors());
+  app.use(cors(reflectCorsOptions));
+  app.options('*', cors(reflectCorsOptions));
 } else {
   app.use(cors(corsOptions));
   app.options('*', cors(corsOptions));
