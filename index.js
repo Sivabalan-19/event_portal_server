@@ -7,9 +7,10 @@ const logger = require('./middleware/logger');
 const errorHandler = require('./middleware/errorHandler');
 const routes = require('./routes');
 
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:3000')
-  .split(',')
-  .map((o) => o.trim());
+const clientUrlEnv = process.env.CLIENT_URL || 'http://localhost:3000';
+const allowedOrigins = clientUrlEnv.split(',').map((o) => o.trim());
+
+const isAllowAll = clientUrlEnv.trim() === '*' || allowedOrigins.includes('*');
 
 const corsOptions = {
   origin: (origin, callback) => {
@@ -26,8 +27,13 @@ const corsOptions = {
 
 db.connect();
 
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+if (isAllowAll) {
+  app.use(cors());
+  app.options('*', cors());
+} else {
+  app.use(cors(corsOptions));
+  app.options('*', cors(corsOptions));
+}
 app.use(express.json());
 app.use(logger);
 
