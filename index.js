@@ -8,19 +8,35 @@ const errorHandler = require('./middleware/errorHandler');
 const routes = require('./routes');
 
 const clientUrlEnv = process.env.CLIENT_URL || 'http://localhost:3000';
-const allowedOrigins = clientUrlEnv.split(',').map((o) => o.trim());
+const allowedOrigins = clientUrlEnv
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
 
 const isAllowAll = clientUrlEnv.trim() === '*' || allowedOrigins.includes('*');
 
 const commonCorsSettings = {
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+};
+
+const isOriginAllowed = (origin) => {
+  if (!origin) return true; // server-to-server, curl, same-origin
+  if (allowedOrigins.includes(origin)) return true;
+  // Support simple wildcard patterns like: https://*.vercel.app
+  for (const pattern of allowedOrigins) {
+    if (!pattern.includes('*')) continue;
+    const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+    const regex = new RegExp(`^${escaped}$`);
+    if (regex.test(origin)) return true;
+  }
+  return false;
 };
 
 const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (isOriginAllowed(origin)) {
       callback(null, true);
     } else {
       callback(new Error(`CORS: origin ${origin} not allowed`));
