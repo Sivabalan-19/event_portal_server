@@ -64,6 +64,15 @@ exports.create = async (req, res, next) => {
       return res.status(400).json({ error: 'registration is closed for this event' });
     }
 
+    const now = new Date();
+    if (event.registrationOpenAt && now < event.registrationOpenAt) {
+      return res.status(400).json({ error: 'registration has not opened yet' });
+    }
+
+    if (event.registrationCloseAt && now > event.registrationCloseAt) {
+      return res.status(400).json({ error: 'registration is closed for this event' });
+    }
+
     const existingRegistration = await Registration.findOne({
       student: req.user.id,
       event: event._id,

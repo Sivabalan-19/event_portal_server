@@ -166,24 +166,11 @@ exports.updateStatus = async (req, res, next) => {
 
 exports.getActive = async (req, res, next) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
     const events = await Event.find({ status: 'Approved' })
       .populate('speakers', 'name')
       .sort({ createdAt: -1 });
 
-    const activeEvents = events.filter((event) => {
-      const parsedDate = parseEventDate(event.date);
-
-      if (!parsedDate) {
-        return true;
-      }
-
-      return parsedDate >= today;
-    });
-
-    res.json({ events: activeEvents });
+    res.json({ events });
   } catch (err) {
     next(err);
   }
@@ -191,9 +178,6 @@ exports.getActive = async (req, res, next) => {
 
 exports.getActiveById = async (req, res, next) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
     const event = await Event.findOne({
       _id: req.params.id,
       status: 'Approved',
@@ -203,11 +187,6 @@ exports.getActiveById = async (req, res, next) => {
       .lean();
 
     if (!event) {
-      return res.status(404).json({ error: 'event not found' });
-    }
-
-    const parsedDate = parseEventDate(event.date);
-    if (parsedDate && parsedDate < today) {
       return res.status(404).json({ error: 'event not found' });
     }
 
@@ -258,6 +237,8 @@ exports.create = async (req, res, next) => {
       date,
       time,
       venue,
+      registrationOpenAt,
+      registrationCloseAt,
       mode,
       speakers,
       coverImageUrl,
@@ -265,6 +246,21 @@ exports.create = async (req, res, next) => {
 
     if (!title) {
       return res.status(400).json({ error: 'title is required' });
+    }
+
+    const parsedOpen = registrationOpenAt ? new Date(registrationOpenAt) : null;
+    const parsedClose = registrationCloseAt ? new Date(registrationCloseAt) : null;
+
+    if ((registrationOpenAt && !parsedOpen) || (registrationCloseAt && !parsedClose)) {
+      return res.status(400).json({ error: 'invalid registration window' });
+    }
+
+    if (parsedOpen && parsedClose && parsedClose <= parsedOpen) {
+      return res.status(400).json({ error: 'registration close must be after open' });
+    }
+
+    if ((registrationOpenAt && !registrationCloseAt) || (!registrationOpenAt && registrationCloseAt)) {
+      return res.status(400).json({ error: 'registration open and close are required together' });
     }
 
     const event = new Event({
@@ -275,6 +271,8 @@ exports.create = async (req, res, next) => {
       date,
       time,
       venue,
+      registrationOpenAt: parsedOpen || undefined,
+      registrationCloseAt: parsedClose || undefined,
       mode,
       speakers,
       coverImageUrl,

@@ -9,6 +9,8 @@ const eventSchema = new Schema(
     date: { type: String },
     time: { type: String },
     venue: { type: String },
+    registrationOpenAt: { type: Date },
+    registrationCloseAt: { type: Date },
     mode: {
       type: String,
       enum: ['online', 'offline', 'hybrid'],

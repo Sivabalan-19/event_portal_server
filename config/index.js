@@ -6,6 +6,7 @@ const config = {
   apiKey: process.env.API_KEY || '',
   mongoUri: process.env.MONGO_URI,
   jwtSecret: process.env.JWT_SECRET || 'CR7',
+  googleClientId: process.env.GOOGLE_CLIENT_ID || '',
 };
 
 module.exports = config;
