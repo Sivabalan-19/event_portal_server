@@ -38,6 +38,12 @@ const registrationSchema = new Schema(
         type: Date,
       },
     },
+    confirmationSentAt: {
+      type: Date,
+    },
+    reminderSentAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,

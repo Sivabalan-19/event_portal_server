@@ -6,6 +6,7 @@ const db = require("./config/db");
 const logger = require("./middleware/logger");
 const errorHandler = require("./middleware/errorHandler");
 const routes = require("./routes");
+const { startReminderScheduler } = require("./jobs/reminderScheduler");
 
 const clientUrlEnv = process.env.CLIENT_URL || "http://localhost:3000";
 const allowedOrigins = clientUrlEnv
@@ -69,6 +70,8 @@ app.use("/api", routes);
 app.get("/", (req, res) => res.json({ message: "Event Portal API" }));
 
 app.use(errorHandler);
+
+startReminderScheduler();
 
 app.listen(config.port, () =>
   console.log(`Server listening on port ${config.port}`),

@@ -1,5 +1,7 @@
 const Event = require('../models/Event');
 const Registration = require('../models/Registration');
+const User = require('../models/User');
+const { sendEmail } = require('../utils/email');
 
 function parseEventDate(dateValue) {
   if (!dateValue) {
@@ -101,6 +103,8 @@ exports.create = async (req, res, next) => {
       waitlistPosition = waitlistCount + 1;
     }
 
+    const wasCancelled = existingRegistration?.status === 'cancelled';
+
     const registration = await createOrRestoreRegistration({
       existingRegistration,
       studentId: req.user.id,
@@ -116,6 +120,75 @@ exports.create = async (req, res, next) => {
         select: 'name',
       },
     });
+
+    const shouldSendConfirmation = !existingRegistration || wasCancelled;
+
+    if (shouldSendConfirmation && !registration.confirmationSentAt) {
+      try {
+        const student = await User.findById(req.user.id).select('name email');
+
+        if (student?.email) {
+          const subject =
+            status === 'waitlisted'
+              ? `Waitlist confirmation: ${event.title}`
+              : `Registration confirmation: ${event.title}`;
+          const dateLabel = event.date || 'TBA';
+          const timeLabel = event.time || 'TBA';
+          const venueLabel = event.venue || 'TBA';
+          const modeLabel = event.mode || 'TBA';
+          const statusLabel = status === 'waitlisted' ? 'waitlisted' : 'registered';
+
+          const text =
+            `Hi ${student.name || 'Student'},\n\n` +
+            `You are ${statusLabel} for: ${event.title}\n\n` +
+            `Event details\n` +
+            `- Date: ${dateLabel}\n` +
+            `- Time: ${timeLabel}\n` +
+            `- Venue: ${venueLabel}\n` +
+            `- Mode: ${modeLabel}\n\n` +
+            `We look forward to seeing you there.\n` +
+            `If you have questions, please contact the organizer.\n`;
+
+          const html = `
+            <div style="font-family: 'Trebuchet MS', Arial, sans-serif; background: #f5f7ff; padding: 24px;">
+              <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 14px; overflow: hidden; box-shadow: 0 8px 24px rgba(20, 24, 82, 0.18);">
+                <div style="background: linear-gradient(135deg, #ff6a00, #ee0979); padding: 20px 24px; color: #fff;">
+                  <div style="font-size: 12px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.85;">Event Portal</div>
+                  <div style="font-size: 22px; font-weight: 700; margin-top: 6px;">Registration Confirmed</div>
+                </div>
+                <div style="padding: 24px; color: #111; line-height: 1.6;">
+                  <p style="margin: 0 0 12px;">Hi ${student.name || 'Student'},</p>
+                  <p style="margin: 0 0 16px;">You are <strong style="color: #ee0979;">${statusLabel}</strong> for:</p>
+                  <h2 style="margin: 0 0 12px; font-size: 20px;">${event.title}</h2>
+                  <div style="background: #fff6f0; border: 1px solid #ffd7c2; border-radius: 12px; padding: 12px 16px;">
+                    <table style="border-collapse: collapse; width: 100%;">
+                      <tr><td style="padding: 6px 12px 6px 0; font-weight: 700; color: #d04a00;">Date</td><td>${dateLabel}</td></tr>
+                      <tr><td style="padding: 6px 12px 6px 0; font-weight: 700; color: #d04a00;">Time</td><td>${timeLabel}</td></tr>
+                      <tr><td style="padding: 6px 12px 6px 0; font-weight: 700; color: #d04a00;">Venue</td><td>${venueLabel}</td></tr>
+                      <tr><td style="padding: 6px 12px 6px 0; font-weight: 700; color: #d04a00;">Mode</td><td>${modeLabel}</td></tr>
+                    </table>
+                  </div>
+                  <p style="margin: 16px 0 0;">We look forward to seeing you there.</p>
+                  <p style="margin: 4px 0 0; color: #555;">If you have questions, please contact the organizer.</p>
+                </div>
+              </div>
+            </div>
+          `;
+
+          await sendEmail({
+            to: student.email,
+            subject,
+            text,
+            html,
+          });
+
+          registration.confirmationSentAt = new Date();
+          await registration.save();
+        }
+      } catch (err) {
+        console.error('Failed to send confirmation email', err);
+      }
+    }
 
     return res.status(existingRegistration ? 200 : 201).json({
       message:
